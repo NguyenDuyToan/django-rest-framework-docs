@@ -65,7 +65,7 @@
             {% endif %}
 
             {% if endpoint.fields %}
-            <p class="fields-desc">Fields:</p>
+            <h3 class="fields-desc">Serializer Fields:</h3>
               {%include "rest_framework_docs/components/fields_list.html" with fields=endpoint.fields %}
             {% elif not endpoint.errors %}
             <p>No fields.</p>

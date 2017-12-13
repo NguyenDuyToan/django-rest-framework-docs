@@ -6,6 +6,7 @@ from django.utils.encoding import force_str
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.serializers import BaseSerializer
+from rest_framework.fields import ChoiceField
 
 VIEWSET_METHODS = {
     'List': ['get', 'post'],
@@ -109,17 +110,29 @@ class ApiEndpoint(object):
 
         if hasattr(serializer, 'get_fields'):
             for key, field in serializer.get_fields().items():
-                to_many_relation = True if hasattr(field, 'many') else False
+                if hasattr(field, 'child_relation'):
+                    to_many_relation = True
+                else:
+                    to_many_relation = True if hasattr(field, 'many') else False
                 sub_fields = []
 
                 if to_many_relation:
-                    sub_fields = self.__get_serializer_fields__(field.child) if isinstance(field, BaseSerializer) else None
+                    if hasattr(field, 'child_relation'):
+                        sub_fields = self.__get_serializer_fields__(field.child_relation)
+                    else:
+                        sub_fields = self.__get_serializer_fields__(field.child) if isinstance(field, BaseSerializer) else None
                 else:
                     sub_fields = self.__get_serializer_fields__(field) if isinstance(field, BaseSerializer) else None
 
+                if isinstance(field, ChoiceField):
+                    choices = ', '.join(('%s (%s)' % (k, v) for k, v in field.choices.items()))
+                else:
+                    choices = None
                 fields.append({
                     "name": key,
+                    "choices": choices,
                     "type": str(field.__class__.__name__),
+                    "read_only": field.read_only,
                     "sub_fields": sub_fields,
                     "required": field.required,
                     "to_many_relation": to_many_relation
@@ -127,6 +140,7 @@ class ApiEndpoint(object):
             # FIXME:
             # Show more attibutes of `field`?
 
+        fields.sort(key=lambda x: x.get('read_only'))
         return fields
 
     def __get_serializer_fields_json__(self):
