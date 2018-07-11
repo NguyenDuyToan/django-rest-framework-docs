@@ -3,37 +3,74 @@
     <thead>
       <tr>
         <th>Field</th>
-        <th>Class</th>
+        <th>Type</th>
         <th>Description</th>
       </tr>
     </thead>
     <tbody>
     {% for field in fields %}
     <tr class="field">
-      <td>{{ field.name }}</td>
+      <td>
+        {{ field.name }}
+        {% if field.required %}
+          <strong>*</strong>
+        {% endif %}
+      </td>
       <td>{{ field.type }}</td>
       <td>
-      {% if field.required %}
-        <span class="label label-primary label-required" title="Required">Required</span>
-      {% endif %}
+        <ul class='list-unstyled'>
+          {% if field.help_text %}
+            <li>
+              {{ field.help_text | capfirst }}
+            </li>
+          {% endif %}
+          {% if field.required %}
+            <li>
+              <label>Required</label>
+            </li>
+          {% endif %}
 
-      {% if field.read_only %}
-        <span class="label label-primary label-required" title="ReadOnly">Read Only</span>
-      {% endif %}
+          {% if field.max_length %}
+            <li>
+              <label>Max Length:</label> {{ field.max_length }}
+            </li>
+          {% endif %}
+          {% if field.min_length %}
+            <li>
+              <label>Max Length:</label> {{ field.min_length }}
+            </li>
+          {% endif %}
 
-      {% if field.choices %}
-        <strong>Choices: </strong>
-        {{field.choices}}
+          {% if field.read_only %}
+            <li>
+              <label>
+                Read Only
+              </label>
+            </li>
+          {% endif %}
 
-      {% endif %}
-      {% if field.to_many_relation %}
-        <span class="label label-primary label-required" title="Support sending several objects of this type in a request ({{obj}, {obj}, ... })">Array of objects</span>
-      {% endif %}
-      {% if field.sub_fields %}
-        <div class="clearfix"></div>
-        <label>Sub Fields:</label>
-        {%include "rest_framework_docs/components/fields_list.html" with fields=field.sub_fields %}
-      {% endif %}
+          {% if field.choices %}
+            <li>
+              <strong>Choices: </strong>
+              {% for choice in field.choices %}
+                {{field.choices}}
+              {% endfor %}
+            </li>
+          {% endif %}
+          {% if field.to_many_relation %}
+            <li>
+              <span class="label label-primary label-required"
+                title="Support sending several objects of this type in a request ({{obj}, {obj}, ... })">Array of objects</span>
+            </li>
+            {% endif %}
+          {% if field.sub_fields %}
+            <li>
+              <div class="clearfix"></div>
+              <label>Sub Fields:</label>
+              {%include "rest_framework_docs/components/fields_list.html" with fields=field.sub_fields %}
+            </li>
+          {% endif %}
+        </ul>
       </td>
     </tr>
     {% endfor %}

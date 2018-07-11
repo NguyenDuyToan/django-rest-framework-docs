@@ -1,17 +1,54 @@
+from __future__ import unicode_literals
 import json
 import inspect
+from decimal import Decimal
 
 from django.contrib.admindocs.views import simplify_regex
 from django.utils.encoding import force_str
 
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.serializers import BaseSerializer
-from rest_framework.fields import ChoiceField
+from rest_framework.fields import (
+    ChoiceField, CharField, BooleanField, NullBooleanField,
+    DateTimeField, DateField, TimeField,
+    IntegerField, FloatField, DecimalField
+)
+from rest_framework.relations import (
+    RelatedField
+)
 
 VIEWSET_METHODS = {
     'List': ['get', 'post'],
     'Instance': ['get', 'put', 'patch', 'delete'],
 }
+
+
+def get_field_type(field):
+    if isinstance(field, BaseSerializer):
+        return 'nested object'
+    if isinstance(field, CharField):
+        return 'string'
+    if isinstance(field, (BooleanField, NullBooleanField)):
+        return 'boolean'
+    if isinstance(field, DateField):
+        return 'iso date'
+    if isinstance(field, DateTimeField):
+        return 'iso datetime'
+    if isinstance(field, TimeField):
+        return 'iso time'
+    if isinstance(field, (IntegerField, FloatField, DecimalField)):
+        return 'number'
+    if hasattr(field, 'get_choice'):
+        choice_sample = field.get_choice().keys()[0]
+    elif hasattr(field, 'choices'):
+        choice_sample = field.choices.keys()[0]
+    else:
+        choice_sample = None
+    if isinstance(choice_sample, (int, long, float, Decimal)):
+        return 'number'
+    if isinstance(choice_sample, basestring):
+        return 'string'
+    return field.__class__.__name__
 
 
 class ApiEndpoint(object):
@@ -107,7 +144,6 @@ class ApiEndpoint(object):
 
     def __get_serializer_fields__(self, serializer):
         fields = []
-
         if hasattr(serializer, 'get_fields'):
             for key, field in serializer.get_fields().items():
                 if hasattr(field, 'child_relation'):
@@ -118,29 +154,44 @@ class ApiEndpoint(object):
 
                 if to_many_relation:
                     if hasattr(field, 'child_relation'):
-                        sub_fields = self.__get_serializer_fields__(field.child_relation)
+                        sub_fields = self.__get_serializer_fields__(
+                            field.child_relation)
                     else:
-                        sub_fields = self.__get_serializer_fields__(field.child) if isinstance(field, BaseSerializer) else None
+                        sub_fields = self.__get_serializer_fields__(
+                            field.child
+                        ) if isinstance(field, BaseSerializer) else None
                 else:
-                    sub_fields = self.__get_serializer_fields__(field) if isinstance(field, BaseSerializer) else None
+                    sub_fields = self.__get_serializer_fields__(
+                        field
+                    ) if isinstance(field, BaseSerializer) else None
 
-                if isinstance(field, ChoiceField):
-                    choices = ', '.join(('%s (%s)' % (k, v) for k, v in field.choices.items()))
+                if hasattr(field, 'choices'):
+                    choices = field.choices
+                elif hasattr(field, 'get_choices'):
+                    choices = field.get_choices()
                 else:
                     choices = None
-                fields.append({
+
+                field_info = {
                     "name": key,
+                    "type": get_field_type(field),
                     "choices": choices,
-                    "type": str(field.__class__.__name__),
                     "read_only": field.read_only,
                     "sub_fields": sub_fields,
                     "required": field.required,
                     "to_many_relation": to_many_relation
-                })
-            # FIXME:
-            # Show more attibutes of `field`?
+                }
+                if hasattr(field, 'max_length'):
+                    field_info['max_length'] = field.max_length
+                    if field.min_length:
+                        field_info['min_length'] = field.min_length
+                if field.help_text:
+                    help_text = unicode(field.help_text)
+                    if help_text:
+                        field_info['help_text'] = help_text
+                fields.append(field_info)
 
-        fields.sort(key=lambda x: x.get('read_only'))
+        fields.sort(key=lambda x: (not x.get('required'), x.get('read_only')))
         return fields
 
     def __get_serializer_fields_json__(self):
