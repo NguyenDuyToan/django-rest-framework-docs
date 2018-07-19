@@ -40,7 +40,7 @@ def get_field_type(field):
         return 'number'
     if hasattr(field, 'get_choice'):
         choice_sample = field.get_choice().keys()[0]
-    elif hasattr(field, 'choices'):
+    elif hasattr(field, 'choices') and field.choices:
         choice_sample = field.choices.keys()[0]
     else:
         choice_sample = None
